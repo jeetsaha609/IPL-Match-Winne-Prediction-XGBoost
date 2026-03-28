@@ -1,0 +1,21 @@
+id,date,team1,team2,toss_winner,toss_decision,winner,venue
+1,2017-04-05,Sunrisers Hyderabad,Royal Challengers Bangalore,Sunrisers Hyderabad,bat,Sunrisers Hyderabad,Hyderabad
+2,2017-04-06,Mumbai Indians,Rising Pune Supergiant,Mumbai Indians,field,Rising Pune Supergiant,Mumbai
+3,2017-04-07,Gujarat Lions,Kolkata Knight Riders,Kolkata Knight Riders,field,Kolkata Knight Riders,Rajkot
+4,2017-04-08,Royal Challengers Bangalore,Delhi Daredevils,Royal Challengers Bangalore,bat,Royal Challengers Bangalore,Bangalore
+5,2017-04-09,Sunrisers Hyderabad,Gujarat Lions,Sunrisers Hyderabad,field,Sunrisers Hyderabad,Hyderabad
+6,2017-04-10,Kings XI Punjab,Rising Pune Supergiant,Kings XI Punjab,bat,Kings XI Punjab,Indore
+7,2017-04-11,Kolkata Knight Riders,Mumbai Indians,Mumbai Indians,field,Mumbai Indians,Kolkata
+8,2017-04-12,Royal Challengers Bangalore,Kings XI Punjab,Kings XI Punjab,field,Kings XI Punjab,Bangalore
+9,2017-04-13,Delhi Daredevils,Rising Pune Supergiant,Delhi Daredevils,bat,Delhi Daredevils,Delhi
+10,2017-04-14,Mumbai Indians,Sunrisers Hyderabad,Mumbai Indians,bat,Mumbai Indians,Mumbai
+11,2017-04-15,Gujarat Lions,Kings XI Punjab,Gujarat Lions,bat,Gujarat Lions,Rajkot
+12,2017-04-16,Kolkata Knight Riders,Delhi Daredevils,Kolkata Knight Riders,field,Kolkata Knight Riders,Kolkata
+13,2017-04-17,Royal Challengers Bangalore,Mumbai Indians,Mumbai Indians,field,Mumbai Indians,Bangalore
+14,2017-04-18,Sunrisers Hyderabad,Kings XI Punjab,Sunrisers Hyderabad,bat,Sunrisers Hyderabad,Hyderabad
+15,2017-04-19,Rising Pune Supergiant,Gujarat Lions,Rising Pune Supergiant,field,Rising Pune Supergiant,Pune
+16,2017-04-20,Delhi Daredevils,Kolkata Knight Riders,Kolkata Knight Riders,field,Kolkata Knight Riders,Delhi
+17,2017-04-21,Kings XI Punjab,Mumbai Indians,Mumbai Indians,field,Mumbai Indians,Indore
+18,2017-04-22,Royal Challengers Bangalore,Sunrisers Hyderabad,Sunrisers Hyderabad,field,Sunrisers Hyderabad,Bangalore
+19,2017-04-23,Gujarat Lions,Delhi Daredevils,Gujarat Lions,bat,Gujarat Lions,Rajkot
+20,2017-04-24,Rising Pune Supergiant,Kolkata Knight Riders,Kolkata Knight Riders,field,Kolkata Knight Riders,Pune
