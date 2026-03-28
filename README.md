@@ -34,6 +34,14 @@ Features used:
 - Player impact
 
 ---
+## 📊 Feature Importance
+"C:\Users\LENOVO\OneDrive\Attachments\Desktop\(Indian Premier League)\IPL Feature Importance.png"
+
+## 📊 Predicted Wins Distribution
+"C:\Users\LENOVO\OneDrive\Attachments\Desktop\(Indian Premier League)\IPL Pre. Wins Dis..png"
+
+
+---
 
 ## 📈 Results
 Accuracy: 25-30% accuracy using XGBoost with engineered features like (team form, toss advantage, and player impact.) Model performance can be further improved with hyperparameter tuning and additional data.
