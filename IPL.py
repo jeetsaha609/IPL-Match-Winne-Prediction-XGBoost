@@ -1,17 +1,20 @@
 import pandas as pd
 import matplotlib.pyplot as plt
-
-from sklearn.model_selection import train_test_split
+import numpy as np
+from sklearn.metrics import classification_report
+from sklearn.metrics import accuracy_score
 matches = pd.read_csv("matches.csv")
 deliveries = pd.read_csv("deliveries.csv")
 
-matches = matches[['id','team1', 'team2', 'venue', 'toss_winner', 'toss_decision', 'winner', 'date']]
-matches.dropna(inplace=True)
+matches = matches[['id', 'team1', 'team2', 'venue', 'toss_decision', 'toss_winner', 'winner', 'date']]
+matches = matches[matches['winner'] != 'No Result'].copy()
+matches = matches.sort_values('date').reset_index(drop=True)
+matches['toss_decision'].fillna('field', inplace=True)
+matches['venue'].fillna('Unknown', inplace=True)
+
 # NEW TEAM FORM 
-
-matches = matches.sort_values(by='date')  
-
-data = pd.merge(deliveries, matches, left_on='match_id', right_on='id')
+data = pd.merge(deliveries, matches, left_on='match_id', right_on='id', how='inner')
+train_match_ids = matches.iloc[:int(len(matches)*0.8)]['id']
 team_runs = data.groupby(['match_id', 'batting_team'])['total_runs'].sum().reset_index()
 wickets = data.groupby(['match_id', 'batting_team'])['player_dismissed'].count().reset_index()
 wickets.rename(columns={'player_dismissed': 'wickets'}, inplace=True)
@@ -36,7 +39,11 @@ bowler_team = data.groupby('bowler')['bowling_team'].first().reset_index()
 
 bowler_stats = bowler_stats.merge(bowler_team, on='bowler', how='left')
 
-top_bowler = bowler_stats.copy()
+bowler_stats_train = bowler_stats[bowler_stats['bowler'].isin(
+    data[data['match_id'].isin(train_match_ids)]['bowler']
+)]
+
+top_bowler = bowler_stats_train.copy()
 
 # impact add কর
 top_bowler['impact'] = top_bowler['count'] / (top_bowler['sum'] + 1)
@@ -46,7 +53,6 @@ top_bowler = top_bowler.sort_values(by='impact', ascending=False)\
                        .groupby('bowling_team').first().reset_index()
 
 top_bowler = top_bowler[['bowling_team', 'impact']]
-top_bowler.rename(columns={'top_bowler_impact': 'top_bowler_impact'}, inplace=True)
 
 # Batsman performance
 batsman_stats = data.groupby(['batsman'])['batsman_runs'].agg(['sum', 'count']).reset_index()
@@ -58,7 +64,12 @@ batsman_team = data.groupby('batsman')['batting_team'].first().reset_index()
 batsman_stats = batsman_stats.merge(batsman_team, on='batsman', how='left')
 
 # Top batsman per team
-top_batsman = batsman_stats.sort_values(by='avg_runs', ascending=False).groupby('batting_team').first().reset_index()
+batsman_stats_train = batsman_stats[batsman_stats['batsman'].isin(
+    data[data['match_id'].isin(train_match_ids)]['batsman']
+)]
+
+top_batsman = batsman_stats_train.sort_values(by='avg_runs', ascending=False)\
+                .groupby('batting_team').first().reset_index()
 
 top_batsman = top_batsman[['batting_team', 'avg_runs']]
 top_batsman.rename(columns={'avg_runs': 'top_batsman_avg'}, inplace=True)
@@ -68,11 +79,12 @@ team_form = {}
 form_list_team1 = []
 form_list_team2 = []
 
-team_form = {}
-
-form_list_team1 = []
-form_list_team2 = []
-
+def calculate_form(history):
+    if len(history) < 3:
+        return 0.5
+    
+    weights = np.linspace(0.2, 1, len(history))
+    return np.sum(np.array(history) * weights) / np.sum(weights)
 for i, row in matches.iterrows():
     t1 = row['team1']
     t2 = row['team2']
@@ -83,18 +95,14 @@ for i, row in matches.iterrows():
     if t2 not in team_form:
         team_form[t2] = []
     
-    weights = [0.1, 0.15, 0.2, 0.25, 0.3]
-
-    form_t1 = sum([a*b for a,b in zip(team_form[t1][-5:], weights)]) if len(team_form[t1]) >= 5 else 0
-    form_t2 = sum([a*b for a,b in zip(team_form[t2][-5:], weights)]) if len(team_form[t2]) >= 5 else 0
+    form_t1 = calculate_form(team_form[t1][-5:])
+    form_t2 = calculate_form(team_form[t2][-5:])
 
     form_list_team1.append(form_t1)
     form_list_team2.append(form_t2)
     
     team_form[t1].append(1 if winner == t1 else 0)
     team_form[t2].append(1 if winner == t2 else 0)
-
-    print(len(form_list_team1), len(matches))
 
 matches['team1_form'] = form_list_team1
 matches['team2_form'] = form_list_team2
@@ -148,20 +156,34 @@ match_features = match_features.reset_index(drop=True)
 matches = matches.reset_index(drop=True)
 
 # Venue Advantage Feature
-venue_win = matches.iloc[:int(len(matches)*0.8)].groupby(['venue', 'winner']).size().reset_index(name='wins')
 
-venue_dict = {}
-for _, row in venue_win.iterrows():
-    venue_dict[(row['venue'], row['winner'])] = row['wins']
+# 🔥 Venue win percentage 
+train_matches = matches.iloc[:int(len(matches)*0.8)]
 
-match_features['venue_team1'] = match_features.apply(
-    lambda x: venue_dict.get((matches.loc[x.name,'venue'], x['team1']), 0), axis=1)
+venue_win = train_matches.groupby(['venue', 'winner']).size().reset_index(name='wins')
+venue_total = train_matches.groupby('venue').size().reset_index(name='total')
 
-match_features['venue_team2'] = match_features.apply(
-    lambda x: venue_dict.get((matches.loc[x.name,'venue'], x['team2']), 0), axis=1)
+venue_stats = venue_win.merge(venue_total, on='venue')
+venue_stats['win_percent'] = venue_stats['wins'] / venue_stats['total']
+
+# dictionary তৈরি
+venue_dict = {
+    (row['venue'], row['winner']): row['win_percent']
+    for _, row in venue_stats.iterrows()
+}
+
+match_features['venue_team1'] = [
+    venue_dict.get((v, t), 0.5)
+    for v, t in zip(match_features['venue'], match_features['team1'])
+]
+
+match_features['venue_team2'] = [
+    venue_dict.get((v, t), 0.5)
+    for v, t in zip(match_features['venue'], match_features['team2'])
+]
 
 team_stats = pd.merge(team_runs, wickets, on=['match_id', 'batting_team'])
-team_stats_train = team_stats.iloc[:int(len(team_stats)*0.8)]
+team_stats_train = team_stats[team_stats['match_id'].isin(train_match_ids)]
 team_strength = team_stats_train.groupby('batting_team')['total_runs'].mean().reset_index()
 team_strength.rename(columns={'total_runs': 'avg_runs'}, inplace=True)
 
@@ -171,10 +193,12 @@ match_features.rename(columns={'avg_runs': 'team1_strength'}, inplace=True)
 
 # Team1 top batsman
 match_features = match_features.merge(top_batsman, left_on='team1', right_on='batting_team', how='left')
+match_features.drop('batting_team', axis=1, inplace=True)
 match_features.rename(columns={'top_batsman_avg': 'team1_batsman_strength'}, inplace=True)
 
 # Team2 top batsman
 match_features = match_features.merge(top_batsman, left_on='team2', right_on='batting_team', how='left')
+match_features.drop('batting_team', axis=1, inplace=True)
 match_features.rename(columns={'top_batsman_avg': 'team2_batsman_strength'}, inplace=True)
 match_features = match_features.merge(team_strength, left_on='team2', right_on='batting_team', how='left')
 match_features.drop('batting_team', axis=1, inplace=True)
@@ -183,21 +207,42 @@ match_features.rename(columns={'avg_runs': 'team2_strength'}, inplace=True)
 # Team1 bowler
 match_features = match_features.merge(top_bowler, left_on='team1', right_on='bowling_team', how='left')
 match_features.drop('bowling_team', axis=1, inplace=True)
-match_features.rename(columns={'top_bowler_economy': 'team1_bowler_strength'}, inplace=True)
+match_features.rename(columns={'impact':'team1_bowler_strength'}, inplace=True)
 
 # Team2 bowler
 match_features = match_features.merge(top_bowler, left_on='team2', right_on='bowling_team', how='left')
 match_features.drop('bowling_team', axis=1, inplace=True)
-match_features.rename(columns={'top_bowler_economy': 'team2_bowler_strength'}, inplace=True)
+match_features.rename(columns={'impact': 'team2_bowler_strength'}, inplace=True)
 match_features = match_features.loc[:, ~match_features.columns.duplicated()]
                                     
 match_features.fillna(0, inplace=True)
+
+# Toss Advantage
+match_features['toss_advantage'] = (
+    (match_features['toss_winner'] == match_features['team1']).astype(int)
+)
+
+match_features['form_diff'] = match_features['team1_form'] - match_features['team2_form']
+match_features['strength_diff'] = match_features['team1_strength'] - match_features['team2_strength']
+match_features['h2h_diff'] = match_features['h2h_team1'] - match_features['h2h_team2']
+match_features['venue_diff'] = match_features['venue_team1'] - match_features['venue_team2']
+match_features['batting_diff'] = match_features['team1_batsman_strength'] - match_features['team2_batsman_strength']
+match_features['bowling_diff'] = match_features['team1_bowler_strength'] - match_features['team2_bowler_strength']
+
+match_features.drop([
+    'team1_form', 'team2_form',
+    'team1_strength', 'team2_strength',
+    'h2h_team1', 'h2h_team2',
+    'toss_winner','toss_win_percent',
+    'toss_decision',   
+    'venue'            
+], axis=1, inplace=True)
 
 from sklearn.preprocessing import LabelEncoder
 
 encoders = {}
 
-for col in ['team1', 'team2', 'toss_winner', 'toss_decision', 'venue']:
+for col in ['team1', 'team2']:
     le = LabelEncoder()
     match_features[col] = le.fit_transform(match_features[col])
     encoders[col] = le
@@ -208,10 +253,12 @@ y = target_encoder.fit_transform(match_features['winner'])
 
 X = match_features.drop(['winner', 'batting_team_x', 'batting_team_y'], axis=1, errors='ignore')
 X= X.apply(pd.to_numeric)
-from xgboost import XGBClassifier
+from sklearn.model_selection import train_test_split
 
 X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, shuffle=False) # Time-based split
+    X, y, test_size=0.2, shuffle=False
+)
+from xgboost import XGBClassifier
 
 model = XGBClassifier(
     n_estimators=300,
@@ -225,9 +272,11 @@ model = XGBClassifier(
 model.fit(X_train, y_train)
 
 plt.figure(figsize=(10,6))
-importance = model.feature_importances_
+import xgboost as xgb
+xgb.plot_importance(model)
+plt.show()
 feature_names = X.columns
-
+importance = model.feature_importances_
 feat_imp = pd.DataFrame({
     'Feature': feature_names,
     'Importance': importance
@@ -238,27 +287,26 @@ feat_imp = feat_imp.sort_values(by='Importance', ascending=False)
 print(feat_imp)
 
 plt.figure(figsize=(10,6))
+
 plt.barh(feat_imp['Feature'], feat_imp['Importance'])
+
 plt.xlabel("Importance Score")
 plt.ylabel("Features")
 plt.title("Feature Importance (XGBoost)")
 plt.gca().invert_yaxis()
 plt.tight_layout()
-
-from sklearn.metrics import classification_report
+plt.show()
 
 predictions = model.predict(X_test)
 
-from sklearn.metrics import classification_report
+print("Test Accuracy:", accuracy_score(y_test, predictions))
+
 print(classification_report(y_test, predictions))
 
-import numpy as np
 from collections import Counter
-
 
 final_prediction = Counter(predictions)
 print(final_prediction)
-
 
 sorted_pred = dict(sorted(final_prediction.items(), key=lambda x: x[1], reverse=True))
 
@@ -277,3 +325,9 @@ plt.title('Predicted Wins Distribution')
 
 plt.tight_layout()
 plt.show()
+
+
+
+
+
+
