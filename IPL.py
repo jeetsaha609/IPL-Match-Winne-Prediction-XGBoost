@@ -45,7 +45,7 @@ bowler_stats_train = bowler_stats[bowler_stats['bowler'].isin(
 
 top_bowler = bowler_stats_train.copy()
 
-# impact add কর
+# impact add 
 top_bowler['impact'] = top_bowler['count'] / (top_bowler['sum'] + 1)
 
 # best bowler per team (high impact = good)
@@ -157,7 +157,7 @@ matches = matches.reset_index(drop=True)
 
 # Venue Advantage Feature
 
-# 🔥 Venue win percentage 
+# Venue win percentage 
 train_matches = matches.iloc[:int(len(matches)*0.8)]
 
 venue_win = train_matches.groupby(['venue', 'winner']).size().reset_index(name='wins')
@@ -166,7 +166,7 @@ venue_total = train_matches.groupby('venue').size().reset_index(name='total')
 venue_stats = venue_win.merge(venue_total, on='venue')
 venue_stats['win_percent'] = venue_stats['wins'] / venue_stats['total']
 
-# dictionary তৈরি
+# dictionary
 venue_dict = {
     (row['venue'], row['winner']): row['win_percent']
     for _, row in venue_stats.iterrows()
@@ -247,7 +247,7 @@ for col in ['team1', 'team2']:
     match_features[col] = le.fit_transform(match_features[col])
     encoders[col] = le
 
-# target alada
+# target 
 target_encoder = LabelEncoder()
 y = target_encoder.fit_transform(match_features['winner'])
 
